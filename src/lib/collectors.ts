@@ -15,27 +15,35 @@ export interface Article {
 export async function collectAITimes(): Promise<Article[]> {
   const articles: Article[] = [];
   try {
-    const res = await fetch("https://www.aitimes.com/rss", {
-      headers: { "User-Agent": "AIRadar/1.0" },
+    const res = await fetch("https://www.aitimes.kr/rss/allArticle.xml", {
+      headers: { "User-Agent": "Mozilla/5.0 (compatible; AIRadar/1.0)" },
       signal: AbortSignal.timeout(10000),
     });
     const xml = await res.text();
 
     const items = xml.split("<item>").slice(1);
-    for (const item of items.slice(0, 15)) {
-      const title = extractTag(item, "title");
+    for (const item of items.slice(0, 20)) {
+      const title = stripHtml(extractTag(item, "title"));
       const link = extractTag(item, "link");
       const desc = stripHtml(extractTag(item, "description")).slice(0, 500);
       const pubDate = extractTag(item, "pubDate");
 
       if (title && link) {
+        // pubDate format: "2026-03-06 09:16:24" (Korean time)
+        let isoDate = new Date().toISOString();
+        if (pubDate) {
+          const normalized = pubDate.replace(" ", "T") + "+09:00";
+          const d = new Date(normalized);
+          if (!isNaN(d.getTime())) isoDate = d.toISOString();
+        }
+
         articles.push({
           id: 0,
           title,
           url: link,
           summary: desc,
           source: "AI Times",
-          published_date: pubDate ? new Date(pubDate).toISOString() : new Date().toISOString(),
+          published_date: isoDate,
           score: null,
           stars: null,
           collected_at: new Date().toISOString(),

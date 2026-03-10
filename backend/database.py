@@ -7,7 +7,13 @@ import sqlite3
 import os
 from datetime import datetime, timedelta
 
-DB_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "ai_radar.db")
+DB_PATH = os.environ.get(
+    "DB_PATH",
+    os.path.join(os.path.dirname(os.path.abspath(__file__)), "ai_radar.db"),
+)
+# On Vercel serverless, use /tmp for writable storage
+if os.environ.get("VERCEL") and "/tmp" not in DB_PATH:
+    DB_PATH = "/tmp/ai_radar.db"
 
 
 def get_conn():

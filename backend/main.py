@@ -1,36 +1,22 @@
-"""
-AI Radar - Backend API Server
-FastAPI application that collects AI news, detects trends, and generates insights.
-"""
-
 from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from database import init_db, get_articles, get_signals, get_experts, get_trends, get_stats
-from collectors import collect_all_sources
-from signal_generator import generate_signals
-from trend_detector import detect_trends
-from expert_detector import detect_experts
-from scheduler import start_scheduler, stop_scheduler
+from database import init_db, get_stats, get_top_news, get_top_articles
+from collector import collect_all
+from keyword_extractor import extract_keywords
+from issue_generator import generate_issues
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     init_db()
-    start_scheduler()
-    print("[AI Radar] Server started")
+    print("[AI Radar Lite] Server started")
     yield
-    stop_scheduler()
-    print("[AI Radar] Server stopped")
+    print("[AI Radar Lite] Server stopped")
 
 
-app = FastAPI(
-    title="AI Radar API",
-    version="2.0.0",
-    description="Real-time AI Intelligence Dashboard API",
-    lifespan=lifespan,
-)
+app = FastAPI(title="AI Radar Lite", version="1.0.0", lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,
@@ -39,45 +25,56 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-
-@app.get("/api/health")
-def health():
-    stats = get_stats()
-    return {"status": "ok", "version": "2.0.0", **stats}
+# --- Cached state (regenerated on collect/generate) ---
+_cache: dict = {"keywords": [], "issues": []}
 
 
-@app.get("/api/articles")
-def list_articles(limit: int = 100):
-    return get_articles(limit)
+@app.get("/api/stats")
+def stats():
+    return get_stats()
 
 
-@app.get("/api/signals")
-def list_signals(limit: int = 50):
-    return get_signals(limit)
+@app.get("/api/keywords")
+def keywords():
+    return _cache["keywords"]
 
 
-@app.get("/api/trends")
-def list_trends(limit: int = 20):
-    return get_trends(limit)
+@app.get("/api/issues")
+def issues():
+    return _cache["issues"]
 
 
-@app.get("/api/experts")
-def list_experts(limit: int = 50):
-    return get_experts(limit)
+@app.get("/api/top-news")
+def top_news(limit: int = 10):
+    return get_top_news(limit)
+
+
+@app.get("/api/top-articles")
+def top_articles(limit: int = 10):
+    return get_top_articles(limit)
 
 
 @app.post("/api/collect")
 def run_collect():
-    result = collect_all_sources()
-    trend_result = detect_trends()
-    expert_result = detect_experts()
+    result = collect_all()
+    kw = extract_keywords(10)
+    iss = generate_issues()
+    _cache["keywords"] = kw
+    _cache["issues"] = iss
     return {
         **result,
-        "trends_detected": trend_result.get("detected", 0),
-        "experts_detected": expert_result.get("detected", 0),
+        "keywords_extracted": len(kw),
+        "issues_generated": len(iss),
     }
 
 
 @app.post("/api/generate")
 def run_generate():
-    return generate_signals()
+    s = get_stats()
+    _cache["keywords"] = extract_keywords(10)
+    _cache["issues"] = generate_issues()
+    return {
+        **s,
+        "top_news": get_top_news(10),
+        "top_articles": get_top_articles(10),
+    }

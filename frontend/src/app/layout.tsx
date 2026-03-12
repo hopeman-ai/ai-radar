@@ -2,8 +2,8 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "AI Radar - Real-time AI Intelligence Dashboard",
-  description: "Track AI trends, signals, and expert insights from multiple sources in real-time",
+  title: "AI Radar",
+  description: "AI Information Scanning Service",
 };
 
 export default function RootLayout({
